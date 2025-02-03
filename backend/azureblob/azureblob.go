@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -520,6 +519,7 @@ type Options struct {
 	Key                        string               `config:"key"`
 	SASURL                     string               `config:"sas_url"`
 	Tenant                     string               `config:"tenant"`
+	OAuthPort                  string               `config:"OAuthPort"`
 	UseAuthorizationFlow       bool                 `config:"use_authorization_flow"`
 	UseDeviceCode              bool                 `config:"use_device_code_flow"`
 	ClientID                   string               `config:"client_id"`
@@ -900,9 +900,9 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 		}
 		redirectURL := "http://localhost:" + startingPort
 
-		cred, err = azidentity.NewInteractiveBrowserCredential(&azidentity.InteractiveBrowserCredentialOptions{
-			ClientID: opt.ClientID,
-			TenantID: opt.Tenant,
+		f.cred, err = azidentity.NewInteractiveBrowserCredential(&azidentity.InteractiveBrowserCredentialOptions{
+			ClientID:    opt.ClientID,
+			TenantID:    opt.Tenant,
 			RedirectURL: redirectURL,
 		})
 
@@ -914,13 +914,13 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 		fmt.Println("redirectURL: ", redirectURL)
 		fmt.Println("serviceURL: ", serviceURL)
 
-		f.svc, err = service.NewClient(serviceURL, cred, &clientOpt)
+		f.svc, err = service.NewClient(serviceURL, f.cred, &clientOpt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create service client: %w", err)
 		}
 	case opt.ClientID != "" && opt.Tenant != "" && opt.ClientSecret == "" && opt.UseDeviceCode:
 		//Authorization flow Oauth
-		cred, err = azidentity.NewDeviceCodeCredential(&azidentity.DeviceCodeCredentialOptions{
+		f.cred, err = azidentity.NewDeviceCodeCredential(&azidentity.DeviceCodeCredentialOptions{
 			ClientID: opt.ClientID,
 			TenantID: opt.Tenant,
 		})
@@ -932,7 +932,7 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 		serviceURL := fmt.Sprintf("https://%s.%s", opt.Account, storageDefaultBaseURL)
 		fmt.Println("serviceURL: ", serviceURL)
 
-		f.svc, err = service.NewClient(serviceURL, cred, &clientOpt)
+		f.svc, err = service.NewClient(serviceURL, f.cred, &clientOpt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create service client: %w", err)
 		}

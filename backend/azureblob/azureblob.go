@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -229,6 +230,20 @@ for ensuring the configured authority is valid and trustworthy.
 `,
 			Default:  false,
 			Advanced: true,
+		}, {
+			Name:     "use_authorization_flow",
+			Default:  false,
+			Advanced: true,
+			Help: `Use the authorization flow for obtaining the access token.
+When true, use the authorization flow to obtain the access token instead of using the client secret or certificate. 
+see [Interactive Browser Authentication](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)`,
+		}, {
+			Name:     "use_device_code",
+			Default:  false,
+			Advanced: true,
+			Help: `Use the authorization flow for obtaining the access token.
+When true, use the authorization flow to obtain the access token instead of using the client secret or certificate. 
+see [Interactive Browser Authentication](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)`,
 		}, {
 			Name: "use_msi",
 			Help: `Use a managed service identity to authenticate (only works in Azure).
@@ -505,6 +520,8 @@ type Options struct {
 	Key                        string               `config:"key"`
 	SASURL                     string               `config:"sas_url"`
 	Tenant                     string               `config:"tenant"`
+	UseAuthorizationFlow       bool                 `config:"use_authorization_flow"`
+	UseDeviceCode              bool                 `config:"use_device_code_flow"`
 	ClientID                   string               `config:"client_id"`
 	ClientSecret               string               `config:"client_secret"`
 	ClientCertificatePath      string               `config:"client_certificate_path"`
@@ -874,6 +891,50 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 		f.cred, err = azidentity.NewClientSecretCredential(opt.Tenant, opt.ClientID, opt.ClientSecret, &options)
 		if err != nil {
 			return nil, fmt.Errorf("error creating a client secret credential: %w", err)
+		}
+	case opt.ClientID != "" && opt.Tenant != "" && opt.ClientSecret == "" && opt.UseAuthorizationFlow:
+		//Authorization flow Oauth
+		startingPort := opt.OAuthPort
+		if startingPort == "" {
+			startingPort = "8085"
+		}
+		redirectURL := "http://localhost:" + startingPort
+
+		cred, err = azidentity.NewInteractiveBrowserCredential(&azidentity.InteractiveBrowserCredentialOptions{
+			ClientID: opt.ClientID,
+			TenantID: opt.Tenant,
+			RedirectURL: redirectURL,
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("error creating an interactive browser credential: %w", err)
+		}
+
+		serviceURL := fmt.Sprintf("https://%s.%s", opt.Account, storageDefaultBaseURL)
+		fmt.Println("redirectURL: ", redirectURL)
+		fmt.Println("serviceURL: ", serviceURL)
+
+		f.svc, err = service.NewClient(serviceURL, cred, &clientOpt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create service client: %w", err)
+		}
+	case opt.ClientID != "" && opt.Tenant != "" && opt.ClientSecret == "" && opt.UseDeviceCode:
+		//Authorization flow Oauth
+		cred, err = azidentity.NewDeviceCodeCredential(&azidentity.DeviceCodeCredentialOptions{
+			ClientID: opt.ClientID,
+			TenantID: opt.Tenant,
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("error creating an interactive browser credential: %w", err)
+		}
+
+		serviceURL := fmt.Sprintf("https://%s.%s", opt.Account, storageDefaultBaseURL)
+		fmt.Println("serviceURL: ", serviceURL)
+
+		f.svc, err = service.NewClient(serviceURL, cred, &clientOpt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create service client: %w", err)
 		}
 	case opt.ClientID != "" && opt.Tenant != "" && opt.ClientCertificatePath != "":
 		// Service principal with certificate

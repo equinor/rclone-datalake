@@ -48,8 +48,8 @@ import (
 	"github.com/rclone/rclone/fs/fserrors"
 	"github.com/rclone/rclone/fs/fshttp"
 	"github.com/rclone/rclone/fs/hash"
+	"github.com/rclone/rclone/fs/list"
 	"github.com/rclone/rclone/fs/operations"
-	"github.com/rclone/rclone/fs/walk"
 	"github.com/rclone/rclone/lib/atexit"
 	"github.com/rclone/rclone/lib/bucket"
 	"github.com/rclone/rclone/lib/encoder"
@@ -102,6 +102,12 @@ var providerOption = fs.Option{
 		Value: "Dreamhost",
 		Help:  "Dreamhost DreamObjects",
 	}, {
+		Value: "Exaba",
+		Help:  "Exaba Object Storage",
+	}, {
+		Value: "FlashBlade",
+		Help:  "Pure Storage FlashBlade Object Storage",
+	}, {
 		Value: "GCS",
 		Help:  "Google Cloud Storage",
 	}, {
@@ -132,6 +138,9 @@ var providerOption = fs.Option{
 		Value: "Magalu",
 		Help:  "Magalu Object Storage",
 	}, {
+		Value: "Mega",
+		Help:  "MEGA S4 Object Storage",
+	}, {
 		Value: "Minio",
 		Help:  "Minio Object Storage",
 	}, {
@@ -140,6 +149,9 @@ var providerOption = fs.Option{
 	}, {
 		Value: "Outscale",
 		Help:  "OUTSCALE Object Storage (OOS)",
+	}, {
+		Value: "OVHcloud",
+		Help:  "OVHcloud Object Storage",
 	}, {
 		Value: "Petabox",
 		Help:  "Petabox Object Storage",
@@ -176,6 +188,9 @@ var providerOption = fs.Option{
 	}, {
 		Value: "Qiniu",
 		Help:  "Qiniu Object Storage (Kodo)",
+	}, {
+		Value: "Zata",
+		Help:  "Zata (S3 compatible Gateway)",
 	}, {
 		Value: "Other",
 		Help:  "Any other S3 compatible provider",
@@ -483,6 +498,14 @@ func init() {
 			}},
 		}, {
 			Name:     "region",
+			Help:     "Region where you can connect with.\n",
+			Provider: "Zata",
+			Examples: []fs.OptionExample{{
+				Value: "us-east-1",
+				Help:  "Indore, Madhya Pradesh, India",
+			}},
+		}, {
+			Name:     "region",
 			Help:     "Region where your bucket will be created and your data stored.\n",
 			Provider: "IONOS",
 			Examples: []fs.OptionExample{{
@@ -514,6 +537,59 @@ func init() {
 			}, {
 				Value: "ap-northeast-1",
 				Help:  "Tokyo, Japan",
+			}},
+		}, {
+			// References:
+			// https://help.ovhcloud.com/csm/en-public-cloud-storage-s3-location?id=kb_article_view&sysparm_article=KB0047384
+			// https://support.us.ovhcloud.com/hc/en-us/articles/10667991081107-Endpoints-and-Object-Storage-Geoavailability
+			Name:     "region",
+			Help:     "Region where your bucket will be created and your data stored.\n",
+			Provider: "OVHcloud",
+			Examples: []fs.OptionExample{{
+				Value: "gra",
+				Help:  "Gravelines, France",
+			}, {
+				Value: "rbx",
+				Help:  "Roubaix, France",
+			}, {
+				Value: "sbg",
+				Help:  "Strasbourg, France",
+			}, {
+				Value: "eu-west-par",
+				Help:  "Paris, France (3AZ)",
+			}, {
+				Value: "de",
+				Help:  "Frankfurt, Germany",
+			}, {
+				Value: "uk",
+				Help:  "London, United Kingdom",
+			}, {
+				Value: "waw",
+				Help:  "Warsaw, Poland",
+			}, {
+				Value: "bhs",
+				Help:  "Beauharnois, Canada",
+			}, {
+				Value: "ca-east-tor",
+				Help:  "Toronto, Canada",
+			}, {
+				Value: "sgp",
+				Help:  "Singapore",
+			}, {
+				Value: "ap-southeast-syd",
+				Help:  "Sydney, Australia",
+			}, {
+				Value: "ap-south-mum",
+				Help:  "Mumbai, India",
+			}, {
+				Value: "us-east-va",
+				Help:  "Vint Hill, Virginia, USA",
+			}, {
+				Value: "us-west-or",
+				Help:  "Hillsboro, Oregon, USA",
+			}, {
+				Value: "rbx-archive",
+				Help:  "Roubaix, France (Cold Archive)",
 			}},
 		}, {
 			Name:     "region",
@@ -567,7 +643,7 @@ func init() {
 		}, {
 			Name:     "region",
 			Help:     "Region to connect to.\n\nLeave blank if you are using an S3 clone and you don't have a region.",
-			Provider: "!AWS,Alibaba,ArvanCloud,ChinaMobile,Cloudflare,IONOS,Petabox,Liara,Linode,Magalu,Qiniu,RackCorp,Scaleway,Selectel,Storj,Synology,TencentCOS,HuaweiOBS,IDrive",
+			Provider: "!AWS,Alibaba,ArvanCloud,ChinaMobile,Cloudflare,FlashBlade,IONOS,Petabox,Liara,Linode,Magalu,OVHcloud,Qiniu,RackCorp,Scaleway,Selectel,Storj,Synology,TencentCOS,HuaweiOBS,IDrive,Mega,Zata",
 			Examples: []fs.OptionExample{{
 				Value: "",
 				Help:  "Use this if unsure.\nWill use v4 signatures and an empty region.",
@@ -1004,6 +1080,12 @@ func init() {
 				Help:  "Washington, DC, (USA), us-iad-1",
 			}},
 		}, {
+			// Lyve Cloud endpoints
+			Name:     "endpoint",
+			Help:     "Endpoint for Lyve Cloud S3 API.\nRequired when using an S3 clone. Please type in your LyveCloud endpoint.\nExamples:\n- s3.us-west-1.{account_name}.lyve.seagate.com (US West 1 - California)\n- s3.eu-west-1.{account_name}.lyve.seagate.com (EU West 1 - Ireland)",
+			Provider: "LyveCloud",
+			Required: true,
+		}, {
 			// Magalu endpoints: https://docs.magalu.cloud/docs/object-storage/how-to/copy-url
 			Name:     "endpoint",
 			Help:     "Endpoint for Magalu Object Storage API.",
@@ -1147,6 +1229,71 @@ func init() {
 			}, {
 				Value: "obs.ru-northwest-2.myhuaweicloud.com",
 				Help:  "RU-Moscow2",
+			}},
+		}, {
+			Name:     "endpoint",
+			Help:     "Endpoint for OVHcloud Object Storage.",
+			Provider: "OVHcloud",
+			Examples: []fs.OptionExample{{
+				Value:    "s3.gra.io.cloud.ovh.net",
+				Help:     "OVHcloud Gravelines, France",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.rbx.io.cloud.ovh.net",
+				Help:     "OVHcloud Roubaix, France",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.sbg.io.cloud.ovh.net",
+				Help:     "OVHcloud Strasbourg, France",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.eu-west-par.io.cloud.ovh.net",
+				Help:     "OVHcloud Paris, France (3AZ)",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.de.io.cloud.ovh.net",
+				Help:     "OVHcloud Frankfurt, Germany",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.uk.io.cloud.ovh.net",
+				Help:     "OVHcloud London, United Kingdom",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.waw.io.cloud.ovh.net",
+				Help:     "OVHcloud Warsaw, Poland",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.bhs.io.cloud.ovh.net",
+				Help:     "OVHcloud Beauharnois, Canada",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.ca-east-tor.io.cloud.ovh.net",
+				Help:     "OVHcloud Toronto, Canada",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.sgp.io.cloud.ovh.net",
+				Help:     "OVHcloud Singapore",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.ap-southeast-syd.io.cloud.ovh.net",
+				Help:     "OVHcloud Sydney, Australia",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.ap-south-mum.io.cloud.ovh.net",
+				Help:     "OVHcloud Mumbai, India",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.us-east-va.io.cloud.ovh.us",
+				Help:     "OVHcloud Vint Hill, Virginia, USA",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.us-west-or.io.cloud.ovh.us",
+				Help:     "OVHcloud Hillsboro, Oregon, USA",
+				Provider: "OVHcloud",
+			}, {
+				Value:    "s3.rbx-archive.io.cloud.ovh.net",
+				Help:     "OVHcloud Roubaix, France (Cold Archive)",
+				Provider: "OVHcloud",
 			}},
 		}, {
 			Name:     "endpoint",
@@ -1366,6 +1513,14 @@ func init() {
 				Help:  "Northeast Asia Endpoint 1",
 			}},
 		}, {
+			Name:     "endpoint",
+			Help:     "Endpoint for Zata Object Storage.",
+			Provider: "Zata",
+			Examples: []fs.OptionExample{{
+				Value: "idr01.zata.ai",
+				Help:  "South Asia Endpoint",
+			}},
+		}, {
 			// Selectel endpoints: https://docs.selectel.ru/en/cloud/object-storage/manage/domains/#s3-api-domains
 			Name:     "endpoint",
 			Help:     "Endpoint for Selectel Object Storage.",
@@ -1377,7 +1532,7 @@ func init() {
 		}, {
 			Name:     "endpoint",
 			Help:     "Endpoint for S3 API.\n\nRequired when using an S3 clone.",
-			Provider: "!AWS,ArvanCloud,IBMCOS,IDrive,IONOS,TencentCOS,HuaweiOBS,Alibaba,ChinaMobile,GCS,Liara,Linode,Magalu,Scaleway,Selectel,StackPath,Storj,Synology,RackCorp,Qiniu,Petabox",
+			Provider: "!AWS,ArvanCloud,IBMCOS,IDrive,IONOS,TencentCOS,HuaweiOBS,Alibaba,ChinaMobile,GCS,Liara,Linode,LyveCloud,Magalu,OVHcloud,Scaleway,Selectel,StackPath,Storj,Synology,RackCorp,Qiniu,Petabox,Zata",
 			Examples: []fs.OptionExample{{
 				Value:    "objects-us-east-1.dream.io",
 				Help:     "Dream Objects endpoint",
@@ -1426,18 +1581,6 @@ func init() {
 				Value:    "localhost:8333",
 				Help:     "SeaweedFS S3 localhost",
 				Provider: "SeaweedFS",
-			}, {
-				Value:    "s3.us-east-1.lyvecloud.seagate.com",
-				Help:     "Seagate Lyve Cloud US East 1 (Virginia)",
-				Provider: "LyveCloud",
-			}, {
-				Value:    "s3.us-west-1.lyvecloud.seagate.com",
-				Help:     "Seagate Lyve Cloud US West 1 (California)",
-				Provider: "LyveCloud",
-			}, {
-				Value:    "s3.ap-southeast-1.lyvecloud.seagate.com",
-				Help:     "Seagate Lyve Cloud AP Southeast 1 (Singapore)",
-				Provider: "LyveCloud",
 			}, {
 				Value:    "oos.eu-west-2.outscale.com",
 				Help:     "Outscale EU West 2 (Paris)",
@@ -1526,6 +1669,22 @@ func init() {
 				Value:    "s3.ir-tbz-sh1.arvanstorage.ir",
 				Help:     "ArvanCloud Tabriz Iran (Shahriar) endpoint",
 				Provider: "ArvanCloud",
+			}, {
+				Value:    "s3.eu-central-1.s4.mega.io",
+				Help:     "Mega S4 eu-central-1 (Amsterdam)",
+				Provider: "Mega",
+			}, {
+				Value:    "s3.eu-central-2.s4.mega.io",
+				Help:     "Mega S4 eu-central-2 (Bettembourg)",
+				Provider: "Mega",
+			}, {
+				Value:    "s3.ca-central-1.s4.mega.io",
+				Help:     "Mega S4 ca-central-1 (Montreal)",
+				Provider: "Mega",
+			}, {
+				Value:    "s3.ca-west-1.s4.mega.io",
+				Help:     "Mega S4 ca-west-1 (Vancouver)",
+				Provider: "Mega",
 			}},
 		}, {
 			Name:     "location_constraint",
@@ -1908,7 +2067,7 @@ func init() {
 		}, {
 			Name:     "location_constraint",
 			Help:     "Location constraint - must be set to match the Region.\n\nLeave blank if not sure. Used when creating buckets only.",
-			Provider: "!AWS,Alibaba,ArvanCloud,HuaweiOBS,ChinaMobile,Cloudflare,IBMCOS,IDrive,IONOS,Leviia,Liara,Linode,Magalu,Outscale,Qiniu,RackCorp,Scaleway,Selectel,StackPath,Storj,TencentCOS,Petabox",
+			Provider: "!AWS,Alibaba,ArvanCloud,HuaweiOBS,ChinaMobile,Cloudflare,FlashBlade,IBMCOS,IDrive,IONOS,Leviia,Liara,Linode,Magalu,Outscale,OVHcloud,Qiniu,RackCorp,Scaleway,Selectel,StackPath,Storj,TencentCOS,Petabox,Mega",
 		}, {
 			Name: "acl",
 			Help: `Canned ACL used when creating buckets and storing or copying objects.
@@ -1923,7 +2082,7 @@ doesn't copy the ACL from the source but rather writes a fresh one.
 If the acl is an empty string then no X-Amz-Acl: header is added and
 the default (private) will be used.
 `,
-			Provider: "!Storj,Selectel,Synology,Cloudflare",
+			Provider: "!Storj,Selectel,Synology,Cloudflare,FlashBlade,Mega",
 			Examples: []fs.OptionExample{{
 				Value:    "default",
 				Help:     "Owner gets Full_CONTROL.\nNo one else has access rights (default).",
@@ -1981,6 +2140,7 @@ isn't set then "acl" is used instead.
 If the "acl" and "bucket_acl" are empty strings then no X-Amz-Acl:
 header is added and the default (private) will be used.
 `,
+			Provider: "!Storj,Selectel,Synology,Cloudflare,FlashBlade",
 			Advanced: true,
 			Examples: []fs.OptionExample{{
 				Value: "private",
@@ -2596,7 +2756,7 @@ The parameter should be a date, "2006-01-02", datetime "2006-01-02
 Note that when using this no file write operations are permitted,
 so you can't upload files or delete them.
 
-See [the time option docs](/docs/#time-option) for valid formats.
+See [the time option docs](/docs/#time-options) for valid formats.
 `,
 			Default:  fs.Time{},
 			Advanced: true,
@@ -3116,6 +3276,9 @@ func parsePath(path string) (root string) {
 // relative to f.root
 func (f *Fs) split(rootRelativePath string) (bucketName, bucketPath string) {
 	bucketName, bucketPath = bucket.Split(bucket.Join(f.root, rootRelativePath))
+	if f.opt.DirectoryMarkers && strings.HasSuffix(bucketPath, "//") {
+		bucketPath = bucketPath[:len(bucketPath)-1]
+	}
 	return f.opt.Enc.FromStandardName(bucketName), f.opt.Enc.FromStandardPath(bucketPath)
 }
 
@@ -3495,6 +3658,9 @@ func setQuirks(opt *Options) {
 	case "Dreamhost":
 		urlEncodeListings = false
 		useAlreadyExists = false // untested
+	case "FlashBlade":
+		mightGzip = false        // Never auto gzips objects
+		virtualHostStyle = false // supports vhost but defaults to paths
 	case "IBMCOS":
 		listObjectsV2 = false // untested
 		virtualHostStyle = false
@@ -3527,6 +3693,14 @@ func setQuirks(opt *Options) {
 		urlEncodeListings = false
 		useMultipartEtag = false
 		useAlreadyExists = false
+	case "Mega":
+		listObjectsV2 = true
+		virtualHostStyle = false
+		urlEncodeListings = true
+		useMultipartEtag = false
+		useAlreadyExists = false
+		// Multipart server side copies not supported
+		opt.CopyCutoff = math.MaxInt64
 	case "Minio":
 		virtualHostStyle = false
 	case "Netease":
@@ -3536,6 +3710,8 @@ func setQuirks(opt *Options) {
 		useAlreadyExists = false // untested
 	case "Outscale":
 		virtualHostStyle = false
+	case "OVHcloud":
+		// No quirks
 	case "RackCorp":
 		// No quirks
 		useMultipartEtag = false // untested
@@ -3597,6 +3773,13 @@ func setQuirks(opt *Options) {
 		urlEncodeListings = false
 		virtualHostStyle = false
 		useAlreadyExists = false // untested
+	case "Zata":
+		useMultipartEtag = false
+		mightGzip = false
+		useUnsignedPayload = false
+		useAlreadyExists = false
+	case "Exaba":
+		virtualHostStyle = false
 	case "GCS":
 		// Google break request Signature by mutating accept-encoding HTTP header
 		// https://github.com/rclone/rclone/issues/6670
@@ -4398,7 +4581,7 @@ func (f *Fs) list(ctx context.Context, opt listOpt, fn listFn) error {
 		}
 		foundItems += len(resp.Contents)
 		for i, object := range resp.Contents {
-			remote := deref(object.Key)
+			remote := *stringClone(deref(object.Key))
 			if urlEncodeListings {
 				remote, err = url.QueryUnescape(remote)
 				if err != nil {
@@ -4425,7 +4608,7 @@ func (f *Fs) list(ctx context.Context, opt listOpt, fn listFn) error {
 			remote = remote[len(opt.prefix):]
 			if isDirectory {
 				// process directory markers as directories
-				remote = strings.TrimRight(remote, "/")
+				remote, _ = strings.CutSuffix(remote, "/")
 			}
 			if opt.addBucket {
 				remote = bucket.Join(opt.bucket, remote)
@@ -4481,7 +4664,7 @@ func (f *Fs) itemToDirEntry(ctx context.Context, remote string, object *types.Ob
 }
 
 // listDir lists files and directories to out
-func (f *Fs) listDir(ctx context.Context, bucket, directory, prefix string, addBucket bool) (entries fs.DirEntries, err error) {
+func (f *Fs) listDir(ctx context.Context, bucket, directory, prefix string, addBucket bool, callback func(fs.DirEntry) error) (err error) {
 	// List the objects and directories
 	err = f.list(ctx, listOpt{
 		bucket:       bucket,
@@ -4497,16 +4680,16 @@ func (f *Fs) listDir(ctx context.Context, bucket, directory, prefix string, addB
 			return err
 		}
 		if entry != nil {
-			entries = append(entries, entry)
+			return callback(entry)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// bucket must be present if listing succeeded
 	f.cache.MarkOK(bucket)
-	return entries, nil
+	return nil
 }
 
 // listBuckets lists the buckets to out
@@ -4539,14 +4722,46 @@ func (f *Fs) listBuckets(ctx context.Context) (entries fs.DirEntries, err error)
 // This should return ErrDirNotFound if the directory isn't
 // found.
 func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err error) {
+	return list.WithListP(ctx, dir, f)
+}
+
+// ListP lists the objects and directories of the Fs starting
+// from dir non recursively into out.
+//
+// dir should be "" to start from the root, and should not
+// have trailing slashes.
+//
+// This should return ErrDirNotFound if the directory isn't
+// found.
+//
+// It should call callback for each tranche of entries read.
+// These need not be returned in any particular order.  If
+// callback returns an error then the listing will stop
+// immediately.
+func (f *Fs) ListP(ctx context.Context, dir string, callback fs.ListRCallback) error {
+	list := list.NewHelper(callback)
 	bucket, directory := f.split(dir)
 	if bucket == "" {
 		if directory != "" {
-			return nil, fs.ErrorListBucketRequired
+			return fs.ErrorListBucketRequired
 		}
-		return f.listBuckets(ctx)
+		entries, err := f.listBuckets(ctx)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			err = list.Add(entry)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		err := f.listDir(ctx, bucket, directory, f.rootDirectory, f.rootBucket == "", list.Add)
+		if err != nil {
+			return err
+		}
 	}
-	return f.listDir(ctx, bucket, directory, f.rootDirectory, f.rootBucket == "")
+	return list.Flush()
 }
 
 // ListR lists the objects and directories of the Fs starting
@@ -4567,7 +4782,7 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 // of listing recursively than doing a directory traversal.
 func (f *Fs) ListR(ctx context.Context, dir string, callback fs.ListRCallback) (err error) {
 	bucket, directory := f.split(dir)
-	list := walk.NewListRHelper(callback)
+	list := list.NewHelper(callback)
 	listR := func(bucket, directory, prefix string, addBucket bool) error {
 		return f.list(ctx, listOpt{
 			bucket:       bucket,
@@ -4708,7 +4923,7 @@ func (f *Fs) Mkdir(ctx context.Context, dir string) error {
 
 // mkdirParent creates the parent bucket/directory if it doesn't exist
 func (f *Fs) mkdirParent(ctx context.Context, remote string) error {
-	remote = strings.TrimRight(remote, "/")
+	remote, _ = strings.CutSuffix(remote, "/")
 	dir := path.Dir(remote)
 	if dir == "/" || dir == "." {
 		dir = ""
@@ -4969,8 +5184,11 @@ func (f *Fs) copyMultipart(ctx context.Context, copyReq *s3.CopyObjectInput, dst
 			MultipartUpload: &types.CompletedMultipartUpload{
 				Parts: parts,
 			},
-			RequestPayer: req.RequestPayer,
-			UploadId:     uid,
+			RequestPayer:         req.RequestPayer,
+			SSECustomerAlgorithm: req.SSECustomerAlgorithm,
+			SSECustomerKey:       req.SSECustomerKey,
+			SSECustomerKeyMD5:    req.SSECustomerKeyMD5,
+			UploadId:             uid,
 		})
 		return f.shouldRetry(ctx, err)
 	})
@@ -5061,7 +5279,7 @@ or from INTELLIGENT-TIERING Archive Access / Deep Archive Access tier to the Fre
 
 Usage Examples:
 
-    rclone backend restore s3:bucket/path/to/object -o priority=PRIORITY -o lifetime=DAYS
+    rclone backend restore s3:bucket/path/to/ --include /object -o priority=PRIORITY -o lifetime=DAYS
     rclone backend restore s3:bucket/path/to/directory -o priority=PRIORITY -o lifetime=DAYS
     rclone backend restore s3:bucket -o priority=PRIORITY -o lifetime=DAYS
     rclone backend restore s3:bucket/path/to/directory -o priority=PRIORITY
@@ -5819,7 +6037,7 @@ func (o *Object) readMetaData(ctx context.Context) (err error) {
 func s3MetadataToMap(s3Meta map[string]string) map[string]string {
 	meta := make(map[string]string, len(s3Meta))
 	for k, v := range s3Meta {
-		meta[strings.ToLower(k)] = v
+		meta[strings.ToLower(k)] = *stringClone(v)
 	}
 	return meta
 }
@@ -5862,14 +6080,14 @@ func (o *Object) setMetaData(resp *s3.HeadObjectOutput) {
 			o.lastModified = *resp.LastModified
 		}
 	}
-	o.mimeType = deref(resp.ContentType)
+	o.mimeType = strings.Clone(deref(resp.ContentType))
 
 	// Set system metadata
-	o.storageClass = (*string)(&resp.StorageClass)
-	o.cacheControl = resp.CacheControl
-	o.contentDisposition = resp.ContentDisposition
-	o.contentEncoding = resp.ContentEncoding
-	o.contentLanguage = resp.ContentLanguage
+	o.storageClass = stringClone(string(resp.StorageClass))
+	o.cacheControl = stringClonePointer(resp.CacheControl)
+	o.contentDisposition = stringClonePointer(resp.ContentDisposition)
+	o.contentEncoding = stringClonePointer(removeAWSChunked(resp.ContentEncoding))
+	o.contentLanguage = stringClonePointer(resp.ContentLanguage)
 
 	// If decompressing then size and md5sum are unknown
 	if o.fs.opt.Decompress && deref(o.contentEncoding) == "gzip" {
@@ -5934,6 +6152,36 @@ func (o *Object) SetModTime(ctx context.Context, modTime time.Time) error {
 // Storable raturns a boolean indicating if this object is storable
 func (o *Object) Storable() bool {
 	return true
+}
+
+// removeAWSChunked removes the "aws-chunked" content-coding from a
+// Content-Encoding field value (RFC 9110). Comparison is case-insensitive.
+// Returns nil if encoding is empty after removal.
+func removeAWSChunked(pv *string) *string {
+	if pv == nil {
+		return nil
+	}
+	v := *pv
+	if v == "" {
+		return nil
+	}
+	if !strings.Contains(strings.ToLower(v), "aws-chunked") {
+		return pv
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		tok := strings.TrimSpace(p)
+		if tok == "" || strings.EqualFold(tok, "aws-chunked") {
+			continue
+		}
+		out = append(out, tok)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	v = strings.Join(out, ",")
+	return &v
 }
 
 func (o *Object) downloadFromURL(ctx context.Context, bucketPath string, options ...fs.OpenOption) (in io.ReadCloser, err error) {
@@ -6104,7 +6352,7 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 	o.setMetaData(&head)
 
 	// Decompress body if necessary
-	if deref(resp.ContentEncoding) == "gzip" {
+	if deref(removeAWSChunked(resp.ContentEncoding)) == "gzip" {
 		if o.fs.opt.Decompress || (resp.ContentLength == nil && o.fs.opt.MightGzip.Value) {
 			return readers.NewGzipReader(resp.Body)
 		}
@@ -6354,8 +6602,11 @@ func (w *s3ChunkWriter) Close(ctx context.Context) (err error) {
 			MultipartUpload: &types.CompletedMultipartUpload{
 				Parts: w.completedParts,
 			},
-			RequestPayer: w.multiPartUploadInput.RequestPayer,
-			UploadId:     w.uploadID,
+			RequestPayer:         w.multiPartUploadInput.RequestPayer,
+			SSECustomerAlgorithm: w.multiPartUploadInput.SSECustomerAlgorithm,
+			SSECustomerKey:       w.multiPartUploadInput.SSECustomerKey,
+			SSECustomerKeyMD5:    w.multiPartUploadInput.SSECustomerKeyMD5,
+			UploadId:             w.uploadID,
 		})
 		return w.f.shouldRetry(ctx, err)
 	})
@@ -6384,8 +6635,8 @@ func (o *Object) uploadMultipart(ctx context.Context, src fs.ObjectInfo, in io.R
 	}
 
 	var s3cw *s3ChunkWriter = chunkWriter.(*s3ChunkWriter)
-	gotETag = s3cw.eTag
-	versionID = aws.String(s3cw.versionID)
+	gotETag = *stringClone(s3cw.eTag)
+	versionID = stringClone(s3cw.versionID)
 
 	hashOfHashes := md5.Sum(s3cw.md5s)
 	wantETag = fmt.Sprintf("%s-%d", hex.EncodeToString(hashOfHashes[:]), len(s3cw.completedParts))
@@ -6417,8 +6668,8 @@ func (o *Object) uploadSinglepartPutObject(ctx context.Context, req *s3.PutObjec
 	}
 	lastModified = time.Now()
 	if resp != nil {
-		etag = deref(resp.ETag)
-		versionID = resp.VersionId
+		etag = *stringClone(deref(resp.ETag))
+		versionID = stringClonePointer(resp.VersionId)
 	}
 	return etag, lastModified, versionID, nil
 }
@@ -6470,8 +6721,8 @@ func (o *Object) uploadSinglepartPresignedRequest(ctx context.Context, req *s3.P
 		if date, err := http.ParseTime(resp.Header.Get("Date")); err != nil {
 			lastModified = date
 		}
-		etag = resp.Header.Get("Etag")
-		vID := resp.Header.Get("x-amz-version-id")
+		etag = *stringClone(resp.Header.Get("Etag"))
+		vID := *stringClone(resp.Header.Get("x-amz-version-id"))
 		if vID != "" {
 			versionID = &vID
 		}
@@ -6525,7 +6776,7 @@ func (o *Object) prepareUpload(ctx context.Context, src fs.ObjectInfo, options [
 		case "content-disposition":
 			ui.req.ContentDisposition = pv
 		case "content-encoding":
-			ui.req.ContentEncoding = pv
+			ui.req.ContentEncoding = removeAWSChunked(pv)
 		case "content-language":
 			ui.req.ContentLanguage = pv
 		case "content-type":
@@ -6622,7 +6873,7 @@ func (o *Object) prepareUpload(ctx context.Context, src fs.ObjectInfo, options [
 		case "content-disposition":
 			ui.req.ContentDisposition = aws.String(value)
 		case "content-encoding":
-			ui.req.ContentEncoding = aws.String(value)
+			ui.req.ContentEncoding = removeAWSChunked(aws.String(value))
 		case "content-language":
 			ui.req.ContentLanguage = aws.String(value)
 		case "content-type":
@@ -6843,6 +7094,7 @@ var (
 	_ fs.Copier          = &Fs{}
 	_ fs.PutStreamer     = &Fs{}
 	_ fs.ListRer         = &Fs{}
+	_ fs.ListPer         = &Fs{}
 	_ fs.Commander       = &Fs{}
 	_ fs.CleanUpper      = &Fs{}
 	_ fs.OpenChunkWriter = &Fs{}

@@ -25,8 +25,8 @@ import (
 	"github.com/rclone/rclone/fs/fserrors"
 	"github.com/rclone/rclone/fs/fshttp"
 	"github.com/rclone/rclone/fs/hash"
+	"github.com/rclone/rclone/fs/list"
 	"github.com/rclone/rclone/fs/operations"
-	"github.com/rclone/rclone/fs/walk"
 	"github.com/rclone/rclone/lib/atexit"
 	"github.com/rclone/rclone/lib/bucket"
 	"github.com/rclone/rclone/lib/encoder"
@@ -491,8 +491,8 @@ func swiftConnection(ctx context.Context, opt *Options, name string) (*swift.Con
 		ApplicationCredentialName:   opt.ApplicationCredentialName,
 		ApplicationCredentialSecret: opt.ApplicationCredentialSecret,
 		EndpointType:                swift.EndpointType(opt.EndpointType),
-		ConnectTimeout:              10 * ci.ConnectTimeout, // Use the timeouts in the transport
-		Timeout:                     10 * ci.Timeout,        // Use the timeouts in the transport
+		ConnectTimeout:              time.Duration(10 * ci.ConnectTimeout), // Use the timeouts in the transport
+		Timeout:                     time.Duration(10 * ci.Timeout),        // Use the timeouts in the transport
 		Transport:                   fshttp.NewTransport(ctx),
 		FetchUntilEmptyPage:         opt.FetchUntilEmptyPage,
 		PartialPageFetchThreshold:   opt.PartialPageFetchThreshold,
@@ -846,7 +846,7 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 // of listing recursively than doing a directory traversal.
 func (f *Fs) ListR(ctx context.Context, dir string, callback fs.ListRCallback) (err error) {
 	container, directory := f.split(dir)
-	list := walk.NewListRHelper(callback)
+	list := list.NewHelper(callback)
 	listR := func(container, directory, prefix string, addContainer bool) error {
 		return f.list(ctx, container, directory, prefix, addContainer, true, false, func(entry fs.DirEntry) error {
 			return list.Add(entry)
